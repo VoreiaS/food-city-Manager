@@ -1,0 +1,133 @@
+# =============================================================================
+# Food City — Docker Compose (development)
+# =============================================================================
+# Brings up: PostgreSQL + PostGIS, Redis, backend (Rust/Axum), frontend (Vite)
+#
+# Usage:
+#   docker compose up -d                       # start all services
+#   docker compose up -d postgres redis        # just data layer
+#   docker compose logs -f backend             # tail backend logs
+#   docker compose down -v                     # stop + delete volumes
+# =============================================================================
+
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: foodcity-postgres
+    environment:
+      POSTGRES_USER: foodcity
+      POSTGRES_PASSWORD: foodcity
+      POSTGRES_DB: foodcity
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U foodcity"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: foodcity-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: foodcity-backend
+    environment:
+      APP_ENV: development
+      APP_PORT: 8080
+      APP_HOST: 0.0.0.0
+      APP_LOG_LEVEL: info,food_city_backend=debug
+      DATABASE_URL: postgres://foodcity:foodcity@postgres:5432/foodcity
+      DATABASE_MAX_CONNECTIONS: 20
+      DATABASE_ACQUIRE_TIMEOUT_SECS: 5
+      REDIS_URL: redis://redis:6379/0
+      REDIS_POOL_SIZE: 16
+      JWT_SECRET: dev-only-change-me-please-use-32-plus-chars
+      JWT_ISSUER: food-city
+      JWT_AUDIENCE: food-city-client
+      JWT_ACCESS_TTL_SECS: 900
+      JWT_REFRESH_TTL_SECS: 604800
+      CORS_ALLOWED_ORIGINS: http://localhost:5173,http://localhost:3000
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_CONNECT_CLIENT_ID: ${STRIPE_CONNECT_CLIENT_ID:-}
+      RATE_LIMIT_ENABLED: "true"
+      RATE_LIMIT_REDIS_URL: redis://redis:6379/1
+      GEOCODER_PROVIDER: nominatim
+      GEOCODER_API_URL: https://nominatim.openstreetmap.org
+      FEATURE_REALTIME_WS: "true"
+      FEATURE_DRIVER_MATCHING: "true"
+      FEATURE_LOYALTY: "true"
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend/src:/app/src:ro
+      - ./backend/migrations:/app/migrations:ro
+      - backend_uploads:/app/uploads
+    # In dev: use cargo-watch to rebuild on file change
+    command: ["cargo", "watch", "-x", "run"]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    develop:
+      watch:
+        - action: rebuild
+          path: ./backend/Cargo.toml
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: development
+    container_name: foodcity-frontend
+    environment:
+      VITE_API_URL: http://localhost:8080
+      VITE_WS_URL: ws://localhost:8080/ws
+      VITE_MAP_TILES_URL: https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/index.html:/app/index.html:ro
+      - ./frontend/vite.config.ts:/app/vite.config.ts:ro
+      - ./frontend/tailwind.config.js:/app/tailwind.config.js:ro
+      - ./frontend/postcss.config.js:/app/postcss.config.js:ro
+      - ./frontend/tsconfig.json:/app/tsconfig.json:ro
+      - ./frontend/tsconfig.node.json:/app/tsconfig.node.json:ro
+      - frontend_node_modules:/app/node_modules
+    command: ["npm", "run", "dev", "--", "--host"]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:5173 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  postgres_data:
+  redis_data:
+  frontend_node_modules:
+  backend_uploads:

@@ -1,0 +1,244 @@
+# Food City — Kubernetes Manifests
+#
+# Deploy with: kubectl apply -f deploy/k8s/
+#
+# Assumes a cluster with:
+# - ingress-nginx controller
+# - cert-manager for TLS (optional)
+# - A managed PostgreSQL + Redis (or use the StatefulSets below)
+#
+# Adjust namespace, image tags, and secrets before applying.
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: food-city
+
+---
+# Database credentials
+apiVersion: v1
+kind: Secret
+metadata:
+  name: food-city-secrets
+  namespace: food-city
+type: Opaque
+stringData:
+  DATABASE_URL: "postgres://foodcity:CHANGE_ME@pg-primary.food-city.svc:5432/foodcity"
+  REDIS_URL: "redis://redis.food-city.svc:6379/0"
+  JWT_SECRET: "CHANGE_ME_TO_48_PLUS_RANDOM_CHARS"
+  STRIPE_SECRET_KEY: "sk_live_CHANGE_ME"
+  STRIPE_WEBHOOK_SECRET: "whsec_CHANGE_ME"
+  STRIPE_CONNECT_CLIENT_ID: "ca_CHANGE_ME"
+
+---
+# Backend Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: food-city
+  labels:
+    app: food-city
+    component: backend
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: food-city
+      component: backend
+  template:
+    metadata:
+      labels:
+        app: food-city
+        component: backend
+    spec:
+      containers:
+        - name: backend
+          image: food-city-backend:latest
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - secretRef:
+                name: food-city-secrets
+          env:
+            - name: APP_ENV
+              value: "production"
+            - name: APP_PORT
+              value: "8080"
+            - name: APP_HOST
+              value: "0.0.0.0"
+            - name: APP_LOG_LEVEL
+              value: "info,food_city_backend=info"
+            - name: DATABASE_MAX_CONNECTIONS
+              value: "30"
+            - name: REDIS_POOL_SIZE
+              value: "32"
+            - name: RATE_LIMIT_ENABLED
+              value: "true"
+            - name: CORS_ALLOWED_ORIGINS
+              value: "https://foodcity.app,https://www.foodcity.app"
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: food-city
+spec:
+  selector:
+    app: food-city
+    component: backend
+  ports:
+    - port: 8080
+      targetPort: 8080
+  type: ClusterIP
+
+---
+# Frontend Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: food-city
+  labels:
+    app: food-city
+    component: frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: food-city
+      component: frontend
+  template:
+    metadata:
+      labels:
+        app: food-city
+        component: frontend
+    spec:
+      containers:
+        - name: frontend
+          image: food-city-frontend:latest
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 3
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: food-city
+spec:
+  selector:
+    app: food-city
+    component: frontend
+  ports:
+    - port: 80
+      targetPort: 80
+  type: ClusterIP
+
+---
+# Ingress
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: food-city-ingress
+  namespace: food-city
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "86400"
+    # cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts: [foodcity.app, www.foodcity.app, api.foodcity.app]
+      secretName: foodcity-tls
+  rules:
+    - host: api.foodcity.app
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8080
+    - host: foodcity.app
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80
+    - host: www.foodcity.app
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80
+
+---
+# Horizontal Pod Autoscaler for backend
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: backend-hpa
+  namespace: food-city
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: backend
+  minReplicas: 3
+  maxReplicas: 20
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
