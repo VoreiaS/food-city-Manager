@@ -1,0 +1,31 @@
+# Rust
+target/
+**/*.rs.bk
+*.pdb
+backend/.env
+backend/Cargo.lock
+
+# Node / Vite
+node_modules/
+dist/
+frontend/.env
+frontend/.env.local
+*.log
+.vite/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+*.swp
+
+# Docker
+.docker-volumes/
+
+# Local secrets
+.env
+.env.*
+!.env.example
+
+# Uploads (runtime data)
+backend/uploads/
