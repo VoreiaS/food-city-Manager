@@ -29,3 +29,8 @@ frontend/.env.local
 
 # Uploads (runtime data)
 backend/uploads/
+
+# TypeScript build info
+*.tsbuildinfo
+vite.config.d.ts
+vite.config.js
