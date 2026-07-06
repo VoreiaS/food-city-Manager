@@ -1,0 +1,5 @@
+# Backend .gitignore additions
+/target
+.env
+.env.*
+!.env.example
