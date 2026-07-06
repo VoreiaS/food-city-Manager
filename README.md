@@ -9,6 +9,31 @@ Built as a 4-role platform (Customer, Restaurant, Driver, Admin) with
 
 ---
 
+## 📸 Screenshots
+
+### Home Page — Restaurant Discovery
+![Home Page](docs/screenshots/01-home.png)
+
+### Login
+![Login](docs/screenshots/02-login.png)
+
+### Logged In — Browse Restaurants
+![Restaurants](docs/screenshots/04-restaurants.png)
+
+### Restaurant Detail — Menu with Veg & Spice Indicators
+![Restaurant Menu](docs/screenshots/05-restaurant-menu.png)
+
+### Order History
+![Orders](docs/screenshots/06-orders.png)
+
+### Loyalty Rewards
+![Loyalty](docs/screenshots/07-loyalty.png)
+
+### User Profile & Address Management
+![Profile](docs/screenshots/08-profile.png)
+
+---
+
 ## ✨ What's in this repo
 
 ### Backend (`/backend`)
@@ -19,8 +44,10 @@ Built as a 4-role platform (Customer, Restaurant, Driver, Admin) with
 - **Redis** for cache, pub/sub, driver GEO set, rate limiting
 - **JWT** auth (access 15min + refresh 7d) with **argon2** password hashing
 - Layered architecture: `api → services → db/repos → domain`
-- Background workers: driver matching, order timeout, payment reconciler (stubs in place)
+- Background workers: driver matching, order timeout, payment reconciler, abandoned cart cleanup
 - 7 migration files covering the full data model (users, restaurants, menus, orders, drivers, reviews, loyalty, payments, disputes)
+- Real Stripe integration with webhook signature verification + mock mode for dev
+- 50+ API endpoints across all 4 roles
 
 ### Frontend (`/frontend`)
 
@@ -36,6 +63,9 @@ Built as a 4-role platform (Customer, Restaurant, Driver, Admin) with
 - All 4 role dashboards scaffolded (Customer / Restaurant / Driver / Admin)
 - Auth flow (login + register) implemented end-to-end
 - Axios client with auto-refresh-on-401 interceptor
+- Live WebSocket order tracking with Leaflet map
+- Error boundary + 404 page + mobile responsive nav
+- ESLint 9 flat config (0 warnings, 0 errors)
 
 ### Docs (`/docs`)
 
@@ -44,6 +74,9 @@ Built as a 4-role platform (Customer, Restaurant, Driver, Admin) with
 - [`ARCHITECTURE.md`](docs/ARCHITECTURE.md) — system diagram, module map, data model, realtime topology
 - [`PLAN.md`](docs/PLAN.md) — 9-phase implementation plan with session mapping
 - [`API_CONTRACT.md`](docs/API_CONTRACT.md) — REST + WebSocket protocol spec
+- [`AUDIT.md`](docs/AUDIT.md) — self-audit report (28 findings across 4 priority levels)
+- [`REAL_WORLD_EVALUATION.md`](docs/REAL_WORLD_EVALUATION.md) — workflow evaluation with 29 bug fixes
+- [`RUNBOOK.md`](docs/RUNBOOK.md) — 11-section ops guide
 
 ---
 
@@ -57,7 +90,7 @@ Built as a 4-role platform (Customer, Restaurant, Driver, Admin) with
 ### Option 1: Docker Compose (recommended)
 
 ```bash
-git clone <your-repo-url> food-city
+git clone https://github.com/VoreiaS/food-city-Manager.git food-city
 cd food-city
 cp backend/.env.example backend/.env
 cp frontend/.env.example frontend/.env
@@ -68,8 +101,6 @@ docker compose up -d
 - Backend: http://localhost:8080
 - Postgres: localhost:5432 (foodcity / foodcity)
 - Redis: localhost:6379
-
-First build takes ~5-10 min (Rust deps). Subsequent rebuilds are fast.
 
 ### Option 2: Local dev
 
@@ -103,6 +134,8 @@ npm run dev
 
 Frontend auto-refreshes on 401 responses. Tokens persist in `localStorage`
 (via Zustand `persist` middleware).
+
+**Test account:** `test@foodcity.app` / `Test1234`
 
 ---
 
@@ -174,8 +207,9 @@ Critical secrets to override in production:
 ```
 food-city/
 ├── docs/                  # Research + architecture + plan + API contract
+│   └── screenshots/       # App screenshots for README
 ├── backend/               # Rust + Axum
-│   ├── migrations/        # SQL migrations (3 files, full schema)
+│   ├── migrations/        # SQL migrations (6 files, full schema)
 │   └── src/
 │       ├── api/           # HTTP handlers + middleware
 │       ├── domain/        # Pure types
@@ -191,7 +225,10 @@ food-city/
 │       ├── store/         # Zustand stores
 │       ├── hooks/         # React Query hooks
 │       └── types/         # Shared TS types
+├── deploy/                # K8s manifests + Grafana dashboard
+├── scripts/               # Setup, backup, restore scripts
 ├── docker-compose.yml     # Dev environment
+├── docker-compose.prod.yml # Production environment
 └── README.md
 ```
 
@@ -199,12 +236,7 @@ food-city/
 
 ## 🤝 Contributing
 
-1. Branch from `main`: `git checkout -b feature/your-feature`
-2. Run `cargo fmt && cargo clippy` (backend) and `npm run typecheck` (frontend) before pushing
-3. Squash-merge PRs; one PR per phase sub-task ideally
-4. Update `docs/PLAN.md` status checkboxes on merge
-
----
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for dev setup, code style, PR checklist, and feature workflow.
 
 ## 📜 License
 
