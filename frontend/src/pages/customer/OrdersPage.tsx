@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Clock, MapPin } from "lucide-react";
+import { Clock, MapPin, WifiOff } from "lucide-react";
 import { useOrders } from "@/hooks/useOrders";
 import type { OrderStatus } from "@/api/orders.api";
 import { Button } from "@/components/ui/Button";
@@ -29,13 +29,31 @@ const statusLabel: Record<OrderStatus, string> = {
 };
 
 export function OrdersPage() {
-  const { data: orders, isLoading } = useOrders(1);
+  const { data: orders, isLoading, isError } = useOrders(1);
 
   if (isLoading) {
     return <div className="mx-auto max-w-3xl px-4 py-12 text-center text-gray-500">Loading…</div>;
   }
 
-  if (!orders || orders.length === 0) {
+  if (isError) {
+    return (
+      <div className="mx-auto max-w-md px-4 py-12 text-center">
+        <WifiOff size={48} className="mx-auto text-gray-300" />
+        <h1 className="mt-3 font-display text-xl font-semibold">Can't load orders</h1>
+        <p className="mt-1 text-sm text-gray-500">
+          The backend API isn't available. Make sure the server is running.
+        </p>
+        <Button className="mt-4" as-child>
+          <Link to="/">Browse restaurants</Link>
+        </Button>
+      </div>
+    );
+  }
+
+  // Safe access — orders might be undefined
+  const orderList = orders ?? [];
+
+  if (orderList.length === 0) {
     return (
       <div className="mx-auto max-w-md px-4 py-12 text-center">
         <Clock size={48} className="mx-auto text-gray-300" />
@@ -54,7 +72,7 @@ export function OrdersPage() {
     <div className="mx-auto max-w-3xl px-4 py-8">
       <h1 className="font-display text-2xl font-bold mb-6">Your Orders</h1>
       <div className="space-y-3">
-        {orders.map((o) => (
+        {orderList.map((o) => (
           <Link
             key={o.id}
             to={`/orders/${o.id}/track`}

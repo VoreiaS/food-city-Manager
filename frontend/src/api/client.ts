@@ -1,4 +1,8 @@
 // Centralized API client with auth interceptors + refresh handling.
+//
+// When VITE_API_URL is not set, uses relative paths (same origin).
+// This allows the frontend to work behind a reverse proxy (nginx) or
+// Vercel rewrites without CORS issues.
 
 import axios, { type AxiosInstance, type InternalAxiosRequestConfig } from "axios";
 import { useAuthStore } from "@/store/authStore";
@@ -10,7 +14,7 @@ const baseURL = import.meta.env.VITE_API_URL
 export const apiClient: AxiosInstance = axios.create({
   baseURL,
   headers: { "Content-Type": "application/json" },
-  timeout: 30_000,
+  timeout: 15_000,
 });
 
 // Attach access token on every request

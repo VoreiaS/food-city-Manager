@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Star, Clock, Bike, ChevronLeft, Leaf, Flame } from "lucide-react";
+import { Star, Clock, Bike, ChevronLeft, Leaf, Flame, WifiOff } from "lucide-react";
 import { useRestaurant, useMenu } from "@/hooks/useRestaurants";
 import { CartDrawer } from "@/components/cart/CartDrawer";
 import { AddItemModal } from "@/components/cart/AddItemModal";
@@ -12,17 +12,32 @@ interface Props {
 }
 
 export function RestaurantDetail({ restaurantId }: Props) {
-  const { data: restaurant, isLoading: rLoading } = useRestaurant(restaurantId);
-  const { data: menu, isLoading: mLoading } = useMenu(restaurantId);
+  const { data: restaurant, isLoading: rLoading, isError: rError } = useRestaurant(restaurantId);
+  const { data: menu, isLoading: mLoading, isError: mError } = useMenu(restaurantId);
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
 
   if (rLoading || mLoading) {
     return <div className="mx-auto max-w-4xl px-4 py-12 text-center text-gray-500">Loading…</div>;
   }
 
+  if (rError || mError) {
+    return (
+      <div className="mx-auto max-w-4xl px-4 py-12 text-center">
+        <WifiOff size={48} className="mx-auto text-gray-300" />
+        <h2 className="mt-3 font-semibold">Can't load restaurant</h2>
+        <p className="mt-1 text-sm text-gray-500">
+          The backend API isn't available. Make sure the server is running.
+        </p>
+      </div>
+    );
+  }
+
   if (!restaurant || !menu) {
     return <div className="mx-auto max-w-4xl px-4 py-12 text-center text-gray-500">Not found.</div>;
   }
+
+  // Safe access to categories — default to empty array
+  const categories = menu.categories ?? [];
 
   const r = restaurant;
 
@@ -79,53 +94,57 @@ export function RestaurantDetail({ restaurantId }: Props) {
 
         {/* Menu */}
         <div className="mt-8 space-y-8 pb-24">
-          {menu.categories.map((cat) => (
-            <section key={cat.id}>
-              <h2 className="font-display text-lg font-semibold mb-3">{cat.name}</h2>
-              <div className="space-y-2">
-                {cat.items.map((item) => (
-                  <button
-                    key={item.id}
-                    onClick={() => item.in_stock && r.is_open && setSelectedItem(item)}
-                    disabled={!item.in_stock || !r.is_open}
-                    className={clsx(
-                      "card w-full p-4 text-left transition",
-                      item.in_stock && r.is_open
-                        ? "hover:shadow-md hover:border-brand-200"
-                        : "opacity-50",
-                    )}
-                  >
-                    <div className="flex gap-4">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          {item.is_veg && <Leaf size={14} className="text-green-600" />}
-                          {item.spice_level > 0 && (
-                            <span className="flex items-center text-red-600">
-                              {Array.from({ length: item.spice_level }).map((_, i) => (
-                                <Flame key={i} size={12} />
-                              ))}
-                            </span>
-                          )}
-                          <h3 className="font-semibold">{item.name}</h3>
-                        </div>
-                        <p className="mt-1 text-sm text-gray-600 line-clamp-2">{item.description}</p>
-                        <p className="mt-2 text-sm font-medium text-brand-700">
-                          ${(item.price_cents / 100).toFixed(2)}
-                        </p>
-                      </div>
-                      {item.image_url && (
-                        <img
-                          src={item.image_url}
-                          alt=""
-                          className="h-20 w-20 shrink-0 rounded-lg object-cover"
-                        />
+          {categories.map((cat) => {
+            const items = cat.items ?? [];
+            if (items.length === 0) return null;
+            return (
+              <section key={cat.id}>
+                <h2 className="font-display text-lg font-semibold mb-3">{cat.name}</h2>
+                <div className="space-y-2">
+                  {items.map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => item.in_stock && r.is_open && setSelectedItem(item)}
+                      disabled={!item.in_stock || !r.is_open}
+                      className={clsx(
+                        "card w-full p-4 text-left transition",
+                        item.in_stock && r.is_open
+                          ? "hover:shadow-md hover:border-brand-200"
+                          : "opacity-50",
                       )}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </section>
-          ))}
+                    >
+                      <div className="flex gap-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            {item.is_veg && <Leaf size={14} className="text-green-600" />}
+                            {item.spice_level > 0 && (
+                              <span className="flex items-center text-red-600">
+                                {Array.from({ length: item.spice_level }).map((_, i) => (
+                                  <Flame key={i} size={10} />
+                                ))}
+                              </span>
+                            )}
+                            <h3 className="font-semibold">{item.name}</h3>
+                          </div>
+                          <p className="mt-1 text-sm text-gray-600 line-clamp-2">{item.description}</p>
+                          <p className="mt-2 text-sm font-medium text-brand-700">
+                            ${(item.price_cents / 100).toFixed(2)}
+                          </p>
+                        </div>
+                        {item.image_url && (
+                          <img
+                            src={item.image_url}
+                            alt=""
+                            className="h-20 w-20 shrink-0 rounded-lg object-cover"
+                          />
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            );
+          })}
         </div>
       </div>
 

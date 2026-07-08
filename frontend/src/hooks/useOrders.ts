@@ -1,11 +1,17 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ordersApi, type CreateOrderInput, type OrderDto } from "@/api/orders.api";
 
+const SAFE_DEFAULTS = {
+  retry: false,
+  refetchOnWindowFocus: false,
+};
+
 export function useOrders(page = 1) {
   return useQuery({
     queryKey: ["orders", page],
     queryFn: () => ordersApi.list(page),
     staleTime: 30_000,
+    ...SAFE_DEFAULTS,
   });
 }
 
@@ -14,8 +20,8 @@ export function useOrder(id: string | undefined) {
     queryKey: ["order", id],
     queryFn: () => ordersApi.byId(id as string),
     enabled: !!id,
+    ...SAFE_DEFAULTS,
     refetchInterval: (q) => {
-      // Poll every 5s while order is in active states.
       const status = q.state.data?.status;
       if (
         status &&

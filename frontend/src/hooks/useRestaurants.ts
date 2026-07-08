@@ -5,6 +5,12 @@ import { restaurantsApi, type RestaurantQuery } from "@/api/restaurants.api";
 export const DEFAULT_LAT = 6.9271;
 export const DEFAULT_LNG = 79.8612;
 
+const SAFE_DEFAULTS = {
+  retry: false,
+  staleTime: 60_000,
+  refetchOnWindowFocus: false,
+};
+
 export function useRestaurants(query: RestaurantQuery = {}) {
   return useQuery({
     queryKey: ["restaurants", query],
@@ -15,7 +21,7 @@ export function useRestaurants(query: RestaurantQuery = {}) {
         radius_m: 10000,
         ...query,
       }),
-    staleTime: 60_000,
+    ...SAFE_DEFAULTS,
   });
 }
 
@@ -23,6 +29,7 @@ export function useCuisines() {
   return useQuery({
     queryKey: ["cuisines"],
     queryFn: () => restaurantsApi.listCuisines(),
+    ...SAFE_DEFAULTS,
     staleTime: 5 * 60_000,
   });
 }
@@ -32,6 +39,7 @@ export function useRestaurant(id: string | undefined) {
     queryKey: ["restaurant", id],
     queryFn: () => restaurantsApi.byId(id as string),
     enabled: !!id,
+    ...SAFE_DEFAULTS,
   });
 }
 
@@ -40,6 +48,7 @@ export function useRestaurantBySlug(slug: string | undefined) {
     queryKey: ["restaurant", "slug", slug],
     queryFn: () => restaurantsApi.bySlug(slug as string),
     enabled: !!slug,
+    ...SAFE_DEFAULTS,
   });
 }
 
@@ -48,6 +57,6 @@ export function useMenu(restaurantId: string | undefined) {
     queryKey: ["menu", restaurantId],
     queryFn: () => restaurantsApi.menu(restaurantId as string),
     enabled: !!restaurantId,
-    staleTime: 60_000,
+    ...SAFE_DEFAULTS,
   });
 }

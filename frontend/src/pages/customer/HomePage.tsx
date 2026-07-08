@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Search, ShoppingBag } from "lucide-react";
+import { Search, ShoppingBag, WifiOff } from "lucide-react";
 import { useRestaurants, useCuisines } from "@/hooks/useRestaurants";
 import { useCartStore } from "@/store/cartStore";
 import { RestaurantCardItem } from "@/components/restaurant/RestaurantCard";
@@ -26,8 +26,12 @@ export function HomePage() {
     [search, cuisineFilter, sort],
   );
 
-  const { data, isLoading } = useRestaurants(query);
+  const { data, isLoading, isError } = useRestaurants(query);
   const { data: cuisines } = useCuisines();
+
+  // Safe access to data arrays
+  const restaurants = data?.data ?? [];
+  const cuisineList = cuisines ?? [];
 
   return (
     <div>
@@ -65,7 +69,7 @@ export function HomePage() {
           </div>
 
           {/* Cuisine chips */}
-          {cuisines && cuisines.length > 0 && (
+          {cuisineList.length > 0 && (
             <div className="mt-4 flex flex-wrap gap-2">
               <button
                 onClick={() => setCuisineFilter(undefined)}
@@ -78,7 +82,7 @@ export function HomePage() {
               >
                 All
               </button>
-              {cuisines.map((c) => (
+              {cuisineList.map((c: string) => (
                 <button
                   key={c}
                   onClick={() => setCuisineFilter(c)}
@@ -116,9 +120,18 @@ export function HomePage() {
 
         {isLoading ? (
           <RestaurantListSkeleton count={8} />
-        ) : data && data.data.length > 0 ? (
+        ) : isError ? (
+          <div className="card p-8 text-center">
+            <WifiOff size={48} className="mx-auto text-gray-300" />
+            <h3 className="mt-3 font-semibold">Can't reach the server</h3>
+            <p className="mt-1 text-sm text-gray-500">
+              The backend API isn't available. Make sure the backend is running,
+              or check your <code>VITE_API_URL</code> environment variable.
+            </p>
+          </div>
+        ) : restaurants.length > 0 ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {data.data.map((r) => (
+            {restaurants.map((r) => (
               <RestaurantCardItem key={r.id} restaurant={r} />
             ))}
           </div>
