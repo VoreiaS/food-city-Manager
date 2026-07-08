@@ -53,7 +53,7 @@ const MENUS = {
 
 function tok(e,r){return "mock."+Buffer.from(JSON.stringify({sub:"mock-user-id",email:e,role:r||"customer",token_type:"access",exp:Math.floor(Date.now()/1000)+900})).toString("base64").replace(/=/g,"")}
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   const path = (req.url||"").replace(/^\/api\/v1/,"").split("?")[0];
   const m = req.method;
   let b={}; if(m==="POST"||m==="PATCH"){try{b=typeof req.body==="string"?JSON.parse(req.body):(req.body||{})}catch{b={}}}
